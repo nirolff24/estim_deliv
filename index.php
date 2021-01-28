@@ -35,6 +35,3 @@ $estimatedDeliveryDate = EstimateDeliveryDate::calculateEstimatedDeliveryTime($z
 echo('Order date is: ' . $orderDate);
 echo('<br>');
 echo('Delivery date is: ' . $estimatedDeliveryDate);
-
-
-

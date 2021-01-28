@@ -2,8 +2,7 @@
 require_once __DIR__ . '/vendor/autoload.php';
 
 
-use Phpml\Regression\LeastSquares;
-use Phpml\SupportVectorMachine\Kernel;
+
 
 class EstimateDeliveryDate {
 
@@ -206,7 +205,39 @@ class EstimateDeliveryDate {
         } catch (\Throwable $th) {
            echo('A aparut o eroare...' . $th);
         }
-     
+
+        // ADD WEEKENDDAYS
+        $weekDayNo = date('N',strtotime('2021-01-01'));
+        //find first saturday
+        if($weekDayNo <= 6){
+            $weekendSat = date('Y-m-d', strtotime('+'. 6-$weekDayNo . 'days', strtotime('2021-01-01')));
+        }else{
+            $weekendSat = date('Y-m-d', strtotime('+'. $weekDayNo-1 . 'days', strtotime('2021-01-01')));
+        }
+
+       
+        while ($weekendSat <= date('Y-m-d', strtotime('2021-12-31'))){
+           
+            if(!in_array($weekendSat, self::$bankDays)){
+                self:: $bankDays[] = $weekendSat;
+            }
+            
+            $weekendSat = date('Y-m-d', strtotime('+'. 7 . 'days', strtotime($weekendSat)));
+            
+        }
+
+       //find first sunday
+       
+            $weekendSun = date('Y-m-d', strtotime('+'. 7-$weekDayNo . 'days', strtotime('2021-01-01')));
+           
+            while ($weekendSun <= date('Y-m-d', strtotime('2021-12-31'))){
+       
+                if(!in_array($weekendSun, self::$bankDays)){
+                    self:: $bankDays[] = $weekendSun;
+                }
+                $weekendSun = date('Y-m-d', strtotime('+'. 7 . 'days', strtotime($weekendSun)));
+            }
+           
     }
 
     static function checkBankDays($orderDate, $estimatedDeliveryDate){
