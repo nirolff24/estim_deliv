@@ -26,15 +26,19 @@ function connect_db() {
 
 
 //echo (strtotime('2021-01-27'));
-$historicalInterval = EstimateDeliveryDate::readDateInterval("10","","");
+$historicalInterval = EstimateDeliveryDate::readDateInterval("100","","");
 
 
-// print_r($historicalInterval); 
-// echo('<br>');
+
 
 $zip_code=30116;
-$orderDate = date(2021-01-17);
-connect_db();
-$estimatedDeliveryDate = EstimateDeliveryDate::calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval);
+$orderDate = date('Y-m-d',strtotime('2021-01-17'));
 
- echo($estimatedDeliveryDate);
+connect_db();
+
+$estimatedDeliveryTime = EstimateDeliveryDate::calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval, DB_TABLE);
+$estimatedDeliveryDate = date('Y-m-d', strtotime('+'. $estimatedDeliveryTime. 'days', strtotime($orderDate)));
+
+echo('Order date is: ' . $orderDate);
+echo('<br>');
+echo('Delivery date is: ' . $estimatedDeliveryDate);

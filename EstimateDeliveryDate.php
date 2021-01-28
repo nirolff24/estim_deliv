@@ -57,31 +57,31 @@ class EstimateDeliveryDate {
         switch (true){
 
             case ($noOfDaysAgo > 0):  
-                echo(5);
+               
                 $range_date['endDate'] = date("Y-m-d"); 
                 $range_date['startDate'] = date('Y-m-d', strtotime('-'. $noOfDaysAgo. 'days', strtotime($range_date['endDate'])));
                 break;
 
             case ($startMonth < $currentMonth && $endMonth == ""):
-                echo(1);
+               
                 $range_date['startDate'] = self::getStartDate($startMonth);
                 $range_date['endDate'] = self::getEndDate($startMonth, $endMonth);
                 break;
             
             case ($startMonth == $currentMonth):
-                echo(2);
+                
                 $range_date['startDate'] = self::getStartDate($currentMonth);
                 $range_date['endDate'] = date("Y-m-d");
                 break;
             
             case ($startMonth < $currentMonth && $currentMonth <= $endMonth):  
-                echo(3);
+                
                 $range_date['startDate'] = self::getStartDate($startMonth);
                 $range_date['endDate'] = self::getEndDate($previousMonth); 
                 break;
 
             case ($startMonth < $endMonth && $endMonth < $currentMonth):  
-                echo(4);
+               
                 $range_date['startDate'] = self::getStartDate($startMonth);
                 $range_date['endDate'] = self::getEndDate($endMonth); 
                 break;
@@ -126,7 +126,7 @@ class EstimateDeliveryDate {
          */
     }
 
-    static function calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval){
+    static function calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval, $dbTable){
         /**
          * Return an estimated interval for a specific zip_code based on order date and historical data 
          * for that zip_code.
@@ -140,46 +140,95 @@ class EstimateDeliveryDate {
 
         $startDate = $historicalInterval['startDate'];
         $endDate = $historicalInterval['endDate'];
-        $orderDate1[] = strtotime($orderDate);
-print_r($historicalInterval);
+        $orderDate1[] = strtotime($orderDate);// to delete
+
         global $conn;
         $interval = array();
-        $sample = array();
-        $target = array();
-
-        $table = 'historical_data';
+        
 
         $sql = "SELECT * 
-                FROM $table 
-                WHERE  zip_code = $zip_code
-                AND shipment_date BETWEEN $startDate AND $endDate";
-echo($sql);
+                FROM $dbTable 
+                WHERE  zip_code = '$zip_code'
+                AND shipment_date BETWEEN '$startDate' AND '$endDate'";
+
         $queryResult = $conn->query($sql);
         
         if ($queryResult->num_rows > 0) {
-            while($row = $result->fetch_assoc()) {
-                $interval[] = strtotime($row('shipment_date'));
-                $sample[] = $interval;
-                $interval = array();
-                $target[] = $row['delivery_interval']; 
+        
+            while($row = $queryResult->fetch_assoc()) {
+        
+                $interval[] = $row['delivery_interval']; 
+        
             }
         }
+
+        $arrCounted = array_count_values($interval);
+       
+        $resultArray=array();
+
+        foreach ($arrCounted as $key => $val) {
         
-        try{
+            if ($val == max($arrCounted)) {
+        
+                $resultArray[$key] = $val;
+        
+            }
 
-            // Initialize regression engine
-            $regression = new LeastSquares();
-            // Train engine
-            $regression->train($samples, $targets);
-            // Predict using trained engine
-           
-            return $regression->predict($orderDate1);
+        $estimatedDeliveryTime = 0;
 
-        }catch(Throwable $t){
+        foreach($resultArray as $key => $value){
 
-            echo $t->getMessage();
-
+            $estimatedDeliveryTime +=(int)$key;
+        
         }
+
+        $estimatedDeliveryTime = $estimatedDeliveryTime / count($resultArray);
+        
+        return $estimatedDeliveryTime;
+    }
+    
+    
+
+     
+       
+    
+    /**===================TEST===================
+    $arr = array (
+        '11' => 14,
+        '10' => 9,
+        '12' => 14,
+        '13' => 7,
+        '14' => 4,
+        '15' => 6
+    );
+    foreach ($arr as $key => $val) {
+        if ($val == max($arr)) {
+            $res[$key] = $val;
+        }
+    }
+    print_r($res);
+    $avg = 0;
+    foreach($res as $key => $value){
+        $avg +=(int)$key;
+    }
+    $avg = $avg / count($res);
+    =========================END TEST============================*/
+      
+        // try{
+
+        //     // Initialize regression engine
+        //     $regression = new LeastSquares();
+        //     // Train engine
+        //     $regression->train($sample, $target);
+        //     // Predict using trained engine
+           
+        //     return $regression->predict($orderDate1);
+
+        // }catch(Throwable $t){
+
+        //     echo $t->getMessage();
+
+        // }
     }
 }
 
