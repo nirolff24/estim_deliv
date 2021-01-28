@@ -2,7 +2,7 @@
 
 // DB data
 define('DB_DRIVER', 'mysqli');
-define('DB_HOSTNAME', 'localhost');
+define('DB_HOSTNAME', 'mysql');
 define('DB_USERNAME', 'florin');
 define('DB_PASSWORD', 'X=q4yHd6');
 define('DB_DATABASE', 'estim_deliv');

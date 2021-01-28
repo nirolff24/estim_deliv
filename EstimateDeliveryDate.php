@@ -1,4 +1,9 @@
 <?php
+require_once __DIR__ . '/vendor/autoload.php';
+
+
+use Phpml\Regression\LeastSquares;
+use Phpml\SupportVectorMachine\Kernel;
 
 class EstimateDeliveryDate {
 
@@ -121,23 +126,64 @@ class EstimateDeliveryDate {
          */
     }
 
+    static function calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval){
+        /**
+         * Return an estimated interval for a specific zip_code based on order date and historical data 
+         * for that zip_code.
+         * 
+         * @param $zip_code
+         * @param $orderDate
+         * @param $historicalInterval
+         * 
+         * @return string $estimatedDeliveryTime
+         */
+
+        $startDate = $historicalInterval['startDate'];
+        $endDate = $historicalInterval['endDate'];
+        $orderDate1[] = strtotime($orderDate);
+print_r($historicalInterval);
+        global $conn;
+        $interval = array();
+        $sample = array();
+        $target = array();
+
+        $table = 'historical_data';
+
+        $sql = "SELECT * 
+                FROM $table 
+                WHERE  zip_code = $zip_code
+                AND shipment_date BETWEEN $startDate AND $endDate";
+echo($sql);
+        $queryResult = $conn->query($sql);
+        
+        if ($queryResult->num_rows > 0) {
+            while($row = $result->fetch_assoc()) {
+                $interval[] = strtotime($row('shipment_date'));
+                $sample[] = $interval;
+                $interval = array();
+                $target[] = $row['delivery_interval']; 
+            }
+        }
+        
+        try{
+
+            // Initialize regression engine
+            $regression = new LeastSquares();
+            // Train engine
+            $regression->train($samples, $targets);
+            // Predict using trained engine
+           
+            return $regression->predict($orderDate1);
+
+        }catch(Throwable $t){
+
+            echo $t->getMessage();
+
+        }
+    }
+}
 
     
- // function connect_db() {
-	//     global $conn;
-
-    //     // $servername = DB_HOSTNAME;
-    //     // $username = DB_USERNAME;
-    //     // $password = DB_PASSWORD;
-    //     // $dbname = DB_DATABASE;
-        
-    //     // Create connection
-    //     // $conn = new mysqli($servername, $username, $password, $dbname);
-        
-    //     // Check connection
-    //     // if ($conn->connect_error) {
-    //     //     die("Connection failed: " . $conn->connect_error);
-    //     // } 
-    // };
-
+ 
+    
 ?>

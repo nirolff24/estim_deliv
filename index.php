@@ -1,45 +1,40 @@
 <?php
 $file_root_path = $_SERVER["DOCUMENT_ROOT"] . "/";
-
+require $file_root_path . "database_config.php";
 require $file_root_path . "EstimateDeliveryDate.php";
 
+global $conn;
 
-//EstimateDeliveryDate::getDates();
-$result1 = EstimateDeliveryDate::readDateInterval("10","","");
+function connect_db() {
+	    global $conn;
 
-$result2 = EstimateDeliveryDate::readDateInterval("10","October-2010","March-2021");
-$result3 = EstimateDeliveryDate::readDateInterval("","","March-2021");
-$result4 = EstimateDeliveryDate::readDateInterval("","October-2010","");
-$result5 = EstimateDeliveryDate::readDateInterval("","October-2010","March-2021");
-$result6 = EstimateDeliveryDate::readDateInterval("","October-2010","November-2020");
-$result7 = EstimateDeliveryDate::readDateInterval("","October-2010","January-2021");
-$result8 = EstimateDeliveryDate::readDateInterval("","January-2021","March-2021");
-$result9 = EstimateDeliveryDate::readDateInterval("","January-2021","");
-$result10 = EstimateDeliveryDate::readDateInterval("","January-2021","January-2021");
-$result11= EstimateDeliveryDate::readDateInterval("","","October-2010");
-$result12= EstimateDeliveryDate::readDateInterval("","","January-2021");
+        $servername = DB_HOSTNAME;
+        $username = DB_USERNAME;
+        $password = DB_PASSWORD;
+        $dbname = DB_DATABASE;
+        
+      
+        //Create connection
+        $conn = new mysqli($servername, $username, $password, $dbname);
+        
+        //Check connection
+        if ($conn->connect_error) {
+            die("Connection failed: " . $conn->connect_error);
+        // } 
+    };
+}
 
-print_r($result1); 
-echo('<br>');
-print_r($result2); 
-echo('<br>'); 
-print_r($result3); 
-echo('<br>'); 
-print_r($result4); 
-echo('<br>'); 
-print_r($result5); 
-echo('<br>'); 
-print_r($result6); 
-echo('<br>'); 
-print_r($result7); 
-echo('<br>'); 
-print_r($result8); 
-echo('<br>'); 
-print_r($result9); 
-echo('<br>'); 
-print_r($result10); 
-echo('<br>'); 
-print_r($result11); 
-echo('<br>'); 
-print_r($result12); 
-echo('<br>');  
+
+//echo (strtotime('2021-01-27'));
+$historicalInterval = EstimateDeliveryDate::readDateInterval("10","","");
+
+
+// print_r($historicalInterval); 
+// echo('<br>');
+
+$zip_code=30116;
+$orderDate = date(2021-01-17);
+connect_db();
+$estimatedDeliveryDate = EstimateDeliveryDate::calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval);
+
+ echo($estimatedDeliveryDate);
