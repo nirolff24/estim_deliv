@@ -20,25 +20,21 @@ function connect_db() {
         //Check connection
         if ($conn->connect_error) {
             die("Connection failed: " . $conn->connect_error);
-        // } 
-    };
+        };
 }
-
-
-//echo (strtotime('2021-01-27'));
-$historicalInterval = EstimateDeliveryDate::readDateInterval("100","","");
-
-
-
-
-$zip_code=30116;
-$orderDate = date('Y-m-d',strtotime('2021-01-17'));
 
 connect_db();
 
-$estimatedDeliveryTime = EstimateDeliveryDate::calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval, DB_TABLE);
-$estimatedDeliveryDate = date('Y-m-d', strtotime('+'. $estimatedDeliveryTime. 'days', strtotime($orderDate)));
+
+$historicalInterval = EstimateDeliveryDate::readDateInterval("100","","");
+$zip_code=30116;
+$orderDate = date('Y-m-d',strtotime('2021-01-17'));
+
+$estimatedDeliveryDate = EstimateDeliveryDate::calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval, DB_TABLE);
 
 echo('Order date is: ' . $orderDate);
 echo('<br>');
 echo('Delivery date is: ' . $estimatedDeliveryDate);
+
+
+

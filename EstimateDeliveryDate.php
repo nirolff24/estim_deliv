@@ -25,6 +25,7 @@ class EstimateDeliveryDate {
     static $end_date;
     static $delivery_interval;
     static $file_root_path;
+    static $bankDays = array();
     
 
 
@@ -88,7 +89,7 @@ class EstimateDeliveryDate {
 
            
         }
-
+        self::StorefromAPI();
         return $range_date;
     }
    
@@ -126,21 +127,9 @@ class EstimateDeliveryDate {
          */
     }
 
-    static function calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval, $dbTable){
-        /**
-         * Return an estimated interval for a specific zip_code based on order date and historical data 
-         * for that zip_code.
-         * 
-         * @param $zip_code
-         * @param $orderDate
-         * @param $historicalInterval
-         * 
-         * @return string $estimatedDeliveryTime
-         */
-
+    static function getHistoricalInterval($zip_code, $orderDate, $historicalInterval, $dbTable){
         $startDate = $historicalInterval['startDate'];
         $endDate = $historicalInterval['endDate'];
-        $orderDate1[] = strtotime($orderDate);// to delete
 
         global $conn;
         $interval = array();
@@ -161,75 +150,80 @@ class EstimateDeliveryDate {
         
             }
         }
+        return $interval;
 
-        $arrCounted = array_count_values($interval);
-       
-        $resultArray=array();
+    }
+    static function calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval, $dbTable){
+        /**
+         * Return an estimated interval for a specific zip_code based on order date and historical data 
+         * for that zip_code.
+         * 
+         * @param string $zip_code
+         * @param  array $historicalInterval
+         * @param  const $dbTable
+         * 
+         * @return string $estimatedDeliveryTime
+         */
 
-        foreach ($arrCounted as $key => $val) {
         
-            if ($val == max($arrCounted)) {
-        
-                $resultArray[$key] = $val;
-        
-            }
+        $historicalIntervalFromTable = self::getHistoricalInterval($zip_code, $orderDate, $historicalInterval, $dbTable);
 
+      
         $estimatedDeliveryTime = 0;
 
-        foreach($resultArray as $key => $value){
+        foreach($historicalIntervalFromTable as $key => $value){
 
-            $estimatedDeliveryTime +=(int)$key;
+            $estimatedDeliveryTime +=(int)$value;
         
         }
 
-        $estimatedDeliveryTime = $estimatedDeliveryTime / count($resultArray);
         
-        return $estimatedDeliveryTime;
-    }
-    
-    
-
-     
+        $estimatedDeliveryTime = round($estimatedDeliveryTime / count($historicalIntervalFromTable),0);
+        $estimatedDeliveryDate = date('Y-m-d', strtotime('+'. $estimatedDeliveryTime. 'days', strtotime($orderDate)));
        
-    
-    /**===================TEST===================
-    $arr = array (
-        '11' => 14,
-        '10' => 9,
-        '12' => 14,
-        '13' => 7,
-        '14' => 4,
-        '15' => 6
-    );
-    foreach ($arr as $key => $val) {
-        if ($val == max($arr)) {
-            $res[$key] = $val;
-        }
+        $daysAdded = self::checkBankDays($orderDate, $estimatedDeliveryDate);
+        $estimatedDeliveryDate = date('Y-m-d', strtotime('+'. $daysAdded . 'days', strtotime($estimatedDeliveryDate)));
+       
+        return $estimatedDeliveryDate;
     }
-    print_r($res);
-    $avg = 0;
-    foreach($res as $key => $value){
-        $avg +=(int)$key;
-    }
-    $avg = $avg / count($res);
-    =========================END TEST============================*/
-      
-        // try{
 
-        //     // Initialize regression engine
-        //     $regression = new LeastSquares();
-        //     // Train engine
-        //     $regression->train($sample, $target);
-        //     // Predict using trained engine
+    static function storeFromAPI () {
+        $year = date('Y',strtotime('2021-01-17'));
+        
+        try {
+            $apiUrl = 'https://zilelibere.webventure.ro/api/'.$year;
+            $dataUrl = json_decode(file_get_contents($apiUrl, true), true);
            
-        //     return $regression->predict($orderDate1);
+            foreach($dataUrl as $dateUrl) {
+                $name = $dateUrl['name'];
+               
+                foreach($dateUrl['date'] as $value){
+                    $bankday = date('Y-m-d', strtotime($value['date']));
+                    self:: $bankDays[] = $bankday;
+                }
 
-        // }catch(Throwable $t){
-
-        //     echo $t->getMessage();
-
-        // }
+            }
+        } catch (\Throwable $th) {
+           echo('A aparut o eroare...' . $th);
+        }
+     
     }
+
+    static function checkBankDays($orderDate, $estimatedDeliveryDate){
+
+        $daysAdded = 0;
+        foreach(self::$bankDays as $key=>$bankDay){
+            if($bankDay >= $orderDate && $bankDay <= $estimatedDeliveryDate){
+                $daysAdded +=1;
+            }
+        }
+    return $daysAdded;    
+
+    }
+
+    
+
+
 }
 
     
