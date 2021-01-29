@@ -88,7 +88,8 @@ class EstimateDeliveryDate {
 
            
         }
-        self::StorefromAPI();
+        self::StorefromAPI(2021);
+        self::createNonWorkingInterval(2021);
         return $range_date;
     }
    
@@ -152,6 +153,7 @@ class EstimateDeliveryDate {
         return $interval;
 
     }
+
     static function calculateEstimatedDeliveryTime($zip_code, $orderDate, $historicalInterval, $dbTable){
         /**
          * Return an estimated interval for a specific zip_code based on order date and historical data 
@@ -166,7 +168,6 @@ class EstimateDeliveryDate {
 
         
         $historicalIntervalFromTable = self::getHistoricalInterval($zip_code, $orderDate, $historicalInterval, $dbTable);
-
       
         $estimatedDeliveryTime = 0;
 
@@ -175,7 +176,6 @@ class EstimateDeliveryDate {
             $estimatedDeliveryTime +=(int)$value;
         
         }
-
         
         $estimatedDeliveryTime = round($estimatedDeliveryTime / count($historicalIntervalFromTable),0);
         $estimatedDeliveryDate = date('Y-m-d', strtotime('+'. $estimatedDeliveryTime. 'days', strtotime($orderDate)));
@@ -186,74 +186,136 @@ class EstimateDeliveryDate {
         return $estimatedDeliveryDate;
     }
 
-    static function storeFromAPI () {
-        $year = date('Y',strtotime('2021-01-17'));
-        
+    static function storeFromAPI ($year) {
         try {
             $apiUrl = 'https://zilelibere.webventure.ro/api/'.$year;
             $dataUrl = json_decode(file_get_contents($apiUrl, true), true);
            
             foreach($dataUrl as $dateUrl) {
+                
                 $name = $dateUrl['name'];
                
                 foreach($dateUrl['date'] as $value){
-                    $bankday = date('Y-m-d', strtotime($value['date']));
-                    self:: $bankDays[] = $bankday;
+                    
+                    self:: $bankDays[] = date('Y-m-d', strtotime($value['date']));
                 }
 
             }
         } catch (\Throwable $th) {
+
            echo('A aparut o eroare...' . $th);
         }
-
-        // ADD WEEKENDDAYS
-        $weekDayNo = date('N',strtotime('2021-01-01'));
-        //find first saturday
+    }
+ 
+    static function createNonWorkingInterval($year){
+        /**
+         * Add weekend days
+         * 
+         * @var int $weekDayNo - weekday number for first day of year
+         * @var date $weekendSat - Saturdays date
+         */
+        
+         $weekDayNo = date('N',strtotime(strval($year) . '-01-01'));
+        
+         //find first saturday
         if($weekDayNo <= 6){
-            $weekendSat = date('Y-m-d', strtotime('+'. 6-$weekDayNo . 'days', strtotime('2021-01-01')));
+            
+            $weekendSat = date('Y-m-d', strtotime('+'. 6-$weekDayNo . 'days', strtotime(strval($year) . '-01-01')));
         }else{
-            $weekendSat = date('Y-m-d', strtotime('+'. $weekDayNo-1 . 'days', strtotime('2021-01-01')));
+        
+            $weekendSat = date('Y-m-d', strtotime('+'. $weekDayNo-1 . 'days', strtotime(strval($year) . '-01-01')));
         }
 
-       
-        while ($weekendSat <= date('Y-m-d', strtotime('2021-12-31'))){
+        // find all saturdays in year
+        while ($weekendSat <= date('Y-m-d', strtotime(strval($year). '-12-31'))){
            
             if(!in_array($weekendSat, self::$bankDays)){
+        
                 self:: $bankDays[] = $weekendSat;
             }
             
             $weekendSat = date('Y-m-d', strtotime('+'. 7 . 'days', strtotime($weekendSat)));
-            
         }
 
-       //find first sunday
-       
-            $weekendSun = date('Y-m-d', strtotime('+'. 7-$weekDayNo . 'days', strtotime('2021-01-01')));
+        //find first sunday
+        $weekendSun = date('Y-m-d', strtotime('+'. 7-$weekDayNo . 'days', strtotime(strval($year) . '-01-01')));
            
-            while ($weekendSun <= date('Y-m-d', strtotime('2021-12-31'))){
+        while ($weekendSun <= date('Y-m-d', strtotime(strval($year) . '-12-31'))){
        
-                if(!in_array($weekendSun, self::$bankDays)){
-                    self:: $bankDays[] = $weekendSun;
-                }
-                $weekendSun = date('Y-m-d', strtotime('+'. 7 . 'days', strtotime($weekendSun)));
+            if(!in_array($weekendSun, self::$bankDays)){
+       
+                self:: $bankDays[] = $weekendSun;
             }
-           
+
+                $weekendSun = date('Y-m-d', strtotime('+'. 7 . 'days', strtotime($weekendSun)));
+        }
     }
 
     static function checkBankDays($orderDate, $estimatedDeliveryDate){
 
         $daysAdded = 0;
         foreach(self::$bankDays as $key=>$bankDay){
+
             if($bankDay >= $orderDate && $bankDay <= $estimatedDeliveryDate){
+            
                 $daysAdded +=1;
             }
         }
-    return $daysAdded;    
-
+        return $daysAdded;    
     }
 
-    
 
+
+    //create record
+    static function createRecord(){
+        //@zipCode
+        //@shipmentDate
+        //@$deliveryDate
+        //@deliveryTime
+        //@nonWorkingInterval
+        //generate random zip code from interval ( 5 zip codes)
+        //generate random shipment date from interval (01.01.2018 - 31.12.2020)
+        //generate random delivery interval (3-14)
+        //calculate delivery date
+        //store in table
+
+        $zipCodesInterval = array(
+                                  '30116'=>1,
+                                  '30216'=>2,
+                                  '30316'=>3,
+                                  '30416'=>4,
+                                  '30516'=>5
+                                );
+        $zipCode =  array_rand($zipCodesInterval, 1);
+        echo $zipCode;
+    
+        $shipmentDate = date('Y-m-d', mt_rand(1514764800, 1609372800));
+        echo $shipmentDate ;
+
+        $deliveryTime = mt_rand(3, 14);
+        echo('<br>');
+        echo $deliveryTime;
+
+        $deliveryDate = date('Y-m-d', strtotime('+'. $deliveryTime . 'days', strtotime($shipmentDate)));
+
+        echo('<br>');
+        echo $deliveryDate;
+        
+        for($year=2018; $year<=2020; $year++){
+            self::storeFromAPI($year) ;
+            self::createNonWorkingInterval($year);
+        }
+
+
+        arsort(self::$bankDays);
+        print_r(self::$bankDays);
+
+        $daysAdded = self::checkBankDays($shipmentDate, $deliveryDate);
+        $deliveryDate = date('Y-m-d', strtotime('+'. $daysAdded . 'days', strtotime($deliveryDate)));
+        echo('<br>');
+        echo $deliveryDate  ;
+
+}
 
 }
 
