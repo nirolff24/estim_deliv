@@ -26,7 +26,7 @@ function connect_db() {
 connect_db();
 
 
-$historicalInterval = EstimateDeliveryDate::readDateInterval("","January-2020","January-2021");
+$historicalInterval = EstimateDeliveryDate::readDateInterval("10","","");
 print_r($historicalInterval);
 $zip_code=30116;
 $orderDate = date('Y-m-d', strtotime('m'));
