@@ -26,11 +26,14 @@ function connect_db() {
 connect_db();
 
 
-$historicalInterval = EstimateDeliveryDate::readDateInterval("10","","");
-print_r($historicalInterval);
-$zip_code=30116;
-$orderDate = date('Y-m-d', strtotime('m'));
+$historicalInterval = EstimateDeliveryDate::readDateInterval("","2018-1","2020-5");
+echo("Date interval for analysis: <br>");
+echo('Start date: ' . $historicalInterval['startDate'] . '<br>');
+echo('End date: ' . $historicalInterval['endDate'] . '<br>');
 
+$zip_code=30116; // Select 30116 or 30216 or 30316 or 30416 or 30516
+$orderDate = date('Y-m-d', strtotime('m'));
+EstimateDeliveryDate::$mean_option = 'max_values'; //or 'average'
 
 $estimatedDeliveryDate = EstimateDeliveryDate::calculateEstimatedDeliveryDate($zip_code, $orderDate, $historicalInterval, DB_TABLE);
 
@@ -42,7 +45,7 @@ echo('Delivery date is: ' . $estimatedDeliveryDate);
 
 
 /**============Fill historical table=================== */
-// for($year=2018; $year<=2020; $year++){
+// for($year=2018; $year<=2021; $year++){
 //     EstimateDeliveryDate::storeFromAPI($year) ;
 //     EstimateDeliveryDate::createNonWorkingInterval($year);
 // }

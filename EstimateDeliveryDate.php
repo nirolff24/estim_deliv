@@ -24,6 +24,7 @@ class EstimateDeliveryDate {
     static $delivery_interval;
     static $file_root_path;
     static $bankDays = array();
+    static $mean_option;
    
     
     static function readDateInterval( $noOfDaysAgo, $startMonth, $endMonth){
@@ -41,11 +42,32 @@ class EstimateDeliveryDate {
          * @return array $range_date - start and end date for analysis interval to be selected from historical table 
          *  */        
         $currentMonth = date('Y-F', strtotime('m'));
-        $startMonth = ($startMonth) ? date('Y-F', strtotime($startMonth)) : $currentMonth;
-        $endMonth = ($endMonth) ? date('Y-F', strtotime($endMonth)) : $currentMonth;
         $firstDateCurrentMonth = date('Y-m-01', strtotime('m'));
         $previousMonth = date('Y-F', strtotime('-1month', strtotime($firstDateCurrentMonth)));
+        
+        if(!($startMonth) && $noOfDaysAgo ==""){
+           
+            exit('Please select a starting month!');
+        } 
+        
+
+        if(!self::checkInputStartMonth($startMonth, $currentMonth)){
+           
+            exit('Select a starting month earlier than current month!');
+        }
+        
+        if(!self::checkInputEndMonth($startMonth, $endMonth)){
+            
+            exit('Start month must be earlier than end month');
+        }
+
+        
+
+        //$startMonth = ($startMonth) ? date('Y-F', strtotime($startMonth)) : $previousMonth;
+       // $endMonth = ($endMonth) ? date('Y-F', strtotime($endMonth)) : $previousMonth;
         $date_range= array();
+      
+       
 
 
         switch (true){
@@ -59,7 +81,7 @@ class EstimateDeliveryDate {
                 $range_date['startDate'] = date('Y-m-d', strtotime('-'. $noOfDaysAgo. 'days', strtotime($range_date['endDate'])));
                 break;
 
-            case ($startMonth < $currentMonth && $endMonth == $currentMonth):
+            case ($startMonth < $currentMonth && !($endMonth) ):
                 /**
                  * calculate interval based only on start month
                  */
@@ -68,16 +90,7 @@ class EstimateDeliveryDate {
                 $range_date['endDate'] = self::getEndDate($startMonth);
                 break;
             
-            case ($startMonth == $currentMonth):
-                 /**
-                 * calculate interval if start month selected is curent month
-                 */
-                
-                $range_date['startDate'] = self::getStartDate($currentMonth);
-                $range_date['endDate'] = date("Y-m-d");
-                break;
-            
-                case ($startMonth < $endMonth && $endMonth < $currentMonth):  
+            case ($startMonth < $endMonth && $endMonth < $currentMonth):  
                     /**
                     * calculate interval if both start month and end month are in the past
                     */
@@ -85,7 +98,7 @@ class EstimateDeliveryDate {
                    $range_date['endDate'] = self::getEndDate($endMonth); 
                    break;
 
-                case ($startMonth < $currentMonth && $currentMonth < $endMonth):  
+            case ($startMonth < $currentMonth && $currentMonth < $endMonth):  
                     /**
                     * calculate interval if selected start month is in the past and selected end month is in future or current month
                     * then the end date is end date of previous month
@@ -150,6 +163,11 @@ class EstimateDeliveryDate {
          *  
          * @return array $interval - an array of delivery times 
          */
+       
+         if(!self::checkInputZipCode($zip_code)){
+            echo('Entered zip_code is not in those mentioned!');
+            exit();
+        };
 
         $startDate = $historicalInterval['startDate'];
         $endDate = $historicalInterval['endDate'];
@@ -163,7 +181,7 @@ class EstimateDeliveryDate {
                 AND shipment_date BETWEEN '$startDate' AND '$endDate'";
 
         $queryResult = $conn->query($sql);
-        
+
         if ($queryResult->num_rows > 0) {
         
             while($row = $queryResult->fetch_assoc()) {
@@ -171,7 +189,14 @@ class EstimateDeliveryDate {
                 $interval[] = intval($row['delivery_work_interval']); 
         
             }
+
+        }else{
+            echo('Either the selected zip code was never delivered to nor the interval for analysis contains any data!<br>
+                  Maximum deliver time of 14 days will be used.');
+                  $interval[]=14;
         }
+    
+        
         return $interval;
 
     }
@@ -193,9 +218,10 @@ class EstimateDeliveryDate {
          */
 
         
+
         $historicalIntervalFromTable = self::getHistoricalInterval($zip_code, $orderDate, $historicalInterval, $dbTable);
      
-        $estimatedDeliveryTime = self::estimateBasedOnHistoricData($historicalIntervalFromTable, 'max_values');
+        $estimatedDeliveryTime = self::estimateBasedOnHistoricData($historicalIntervalFromTable, self::$mean_option);
 
         $estimatedDeliveryDate = date('Y-m-d', strtotime('+'. $estimatedDeliveryTime. 'days', strtotime($orderDate))); //initial estimated delivery date
        
@@ -320,7 +346,6 @@ class EstimateDeliveryDate {
 
                     $estimatedDeliveryTime +=(int)$value;
                 }
-                
                 $estimatedDeliveryTime = round($estimatedDeliveryTime / count($historicalIntervalFromTable),0);
                 break;
 
@@ -334,12 +359,69 @@ class EstimateDeliveryDate {
                     }
                 }
                 
-                $estimatedDeliveryTime = round($estimatedDeliveryTime / count($resultArray),0);
+                $estimatedDeliveryTime = round($estimatedDeliveryTime / count($resultArray), 0);
                 break;
         }
         
         return $estimatedDeliveryTime;
 
+    }
+
+    static function checkInputZipCode($zip_code){
+        /**
+         * 
+         * Check if values are ok and return boolean
+         * 
+         * @return boolean
+         * 
+         */
+        $zipCodesInterval = array(
+            '30116'=>1,
+            '30216'=>2,
+            '30316'=>3,
+            '30416'=>4,
+            '30516'=>5
+          );
+        if (array_key_exists($zip_code, $zipCodesInterval)){
+            return TRUE;
+        }else{
+            return FALSE;
+        }
+    }
+
+    
+    static function checkInputStartMonth($startMonth, $currentMonth){
+        /**
+         * 
+         * Check if start date is earlier than current month
+         * 
+         * @return boolean
+         * 
+         */
+       
+        if ($startMonth < $currentMonth){
+            return TRUE;
+        }else{
+            return FALSE;
+        }
+    }
+
+    static function checkInputEndMonth($startMonth, $endMonth){
+        /**
+         * 
+         * Check that endMonth should be later than start month, when they are entered
+         * 
+         * @return boolean
+         * 
+         */
+        if(!($endMonth)){
+            return TRUE;
+        }
+        if ( ($startMonth != $endMonth) && ($startMonth < $endMonth) ){
+            return TRUE;
+        }else{
+            return FALSE;
+        }
     }
 
 
@@ -348,100 +430,98 @@ class EstimateDeliveryDate {
  * these functions were used to populate the historical table 
  */   
     static function createRecord(){
-        // //@zipCode
-        // //@shipmentDate
-        // //@$deliveryDate
-        // //@deliveryTime
-        // //@nonWorkingInterval
-        // //generate random zip code from interval ( 5 zip codes)
-        // //generate random shipment date from interval (01.01.2018 - 31.12.2020)
-        // //generate random delivery interval (3-14)
-        // //calculate delivery date
-        // //store in table
+        //@zipCode
+        //@shipmentDate
+        //@$deliveryDate
+        //@deliveryTime
+        //@nonWorkingInterval
+        //generate random zip code from interval ( 5 zip codes)
+        //generate random shipment date from interval (01.01.2018 - 31.12.2020)
+        //generate random delivery interval (3-14)
+        //calculate delivery date
+        //store in table
 
-        // $zipCodesInterval = array(
-        //                           '30116'=>1,
-        //                           '30216'=>2,
-        //                           '30316'=>3,
-        //                           '30416'=>4,
-        //                           '30516'=>5
-        //                         );
-        // $zipCode =  array_rand($zipCodesInterval, 1);
-        // echo $zipCode;
+        $zipCodesInterval = array(
+                                  '30116'=>1,
+                                  '30216'=>2,
+                                  '30316'=>3,
+                                  '30416'=>4,
+                                  '30516'=>5
+                                );
+        $zipCode =  array_rand($zipCodesInterval, 1);
+        echo $zipCode;
     
-        // $shipmentDate1 = date('Y-m-d', mt_rand(1514764800, 1609372800));
-        // echo('<br>');
-        // echo $shipmentDate1 ;
-        // $shipmentDate2 = self::checkIfWeekend($shipmentDate1);
-        // echo('<br>');
-        // echo $shipmentDate2 ;
+        $shipmentDate1 = date('Y-m-d', mt_rand(1514764800, 1620372800));
+        echo('<br>');
+        echo $shipmentDate1 ;
+        $shipmentDate2 = self::checkIfWeekend($shipmentDate1);
+        echo('<br>');
+        echo $shipmentDate2 ;
 
-        // $deliveryTime = mt_rand(3, 14);
-        // echo('<br>');
-        // echo $deliveryTime;
+        $deliveryTime = mt_rand(3, 14);
+        echo('<br>');
+        echo $deliveryTime;
 
-        // $deliveryDate1 = date('Y-m-d', strtotime('+'. $deliveryTime . 'days', strtotime($shipmentDate2)));
+        $deliveryDate1 = date('Y-m-d', strtotime('+'. $deliveryTime . 'days', strtotime($shipmentDate2)));
 
-        // echo('<br>');
-        // echo $deliveryDate1;
+        echo('<br>');
+        echo $deliveryDate1;
         
-        // arsort(self::$bankDays);
+        arsort(self::$bankDays);
 
-        // $daysAdded = self::checkBankDays($shipmentDate2, $deliveryDate1);
-        // $deliveryDate2 = date('Y-m-d', strtotime('+'. $daysAdded . 'days', strtotime($deliveryDate1)));
-        // $deliveryDate3 = self::checkIfWeekend($deliveryDate2);
+        $daysAdded = self::checkBankDays($shipmentDate2, $deliveryDate1);
+        $deliveryDate2 = date('Y-m-d', strtotime('+'. $daysAdded . 'days', strtotime($deliveryDate1)));
+        $deliveryDate3 = self::checkIfWeekend($deliveryDate2);
 
-        // echo('<br>');
-        // echo $daysAdded  ;
-        // echo('<br>');
-        // echo $deliveryDate3  ;
+        echo('<br>');
+        echo $daysAdded  ;
+        echo('<br>');
+        echo $deliveryDate3  ;
         
-        // self::insertHistoricalTable($zipCode, $shipmentDate2, $deliveryDate3, $deliveryTime, DB_TABLE);
+        self::insertHistoricalTable($zipCode, $shipmentDate2, $deliveryDate3, $deliveryTime, DB_TABLE);
     }
     
     static function insertHistoricalTable($zipCode, $shipmentDate, $deliveryDate, $deliveryTime, $dbTable){
 
-    //     /**
-    //      * 
-    //      * Update table historical_data
-    //      * 
-    //      * 
-    //      * 
-    //      */
+        /**
+         * 
+         * Update table historical_data
+         * 
+         * 
+         * 
+         */
 
-    //     global $conn;
+        global $conn;
 
-    //     $sql = "INSERT INTO  $dbTable (zip_code, shipment_date, delivery_date, delivery_work_interval) 
-    //             VALUES ($zipCode, '$shipmentDate', '$deliveryDate', $deliveryTime)";
+        $sql = "INSERT INTO  $dbTable (zip_code, shipment_date, delivery_date, delivery_work_interval) 
+                VALUES ($zipCode, '$shipmentDate', '$deliveryDate', $deliveryTime)";
 
-    //    //echo $sql;
-    //     if($conn->query($sql)){
-    //         echo('<br>  Gata insertu');
+       //echo $sql;
+        if($conn->query($sql)){
             
-    //     };
+            
+        };
     }
 
     static function checkIfWeekend($date){
-        // /**
-        //  * Check if date is weekend and slide it with 1 or 2 day consequently;
-        //  * 
-        //  */
-        // $weekDayNo = date('N',strtotime($date));
+        /**
+         * Check if date is weekend and slide it with 1 or 2 day consequently;
+         * 
+         */
+        $weekDayNo = date('N',strtotime($date));
         
-        // if($weekDayNo == 6){
+        if($weekDayNo == 6){
             
-        //     $date2 = date('Y-m-d', strtotime('+2days', strtotime($date)));
+            $date2 = date('Y-m-d', strtotime('+2days', strtotime($date)));
 
-        // }elseif($weekDayNo == 7){
+        }elseif($weekDayNo == 7){
         
-        //     $date2 = date('Y-m-d', strtotime('+1days', strtotime($date)));
-        // }else{
-        //     return $date;
-        // }
-        // return $date2;
+            $date2 = date('Y-m-d', strtotime('+1days', strtotime($date)));
+        }else{
+            return $date;
+        }
+        return $date2;
     }
-/**==================================================================================== */
-
 }
 
     
