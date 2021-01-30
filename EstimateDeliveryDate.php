@@ -41,9 +41,9 @@ class EstimateDeliveryDate {
          * 
          * @return array $range_date - start and end date for analysis interval to be selected from historical table 
          *  */        
-        $currentMonth = date('Y-F', strtotime('m'));
+        $currentMonth = date('Y-m', strtotime('m'));
         $firstDateCurrentMonth = date('Y-m-01', strtotime('m'));
-        $previousMonth = date('Y-F', strtotime('-1month', strtotime($firstDateCurrentMonth)));
+        $previousMonth = date('Y-m', strtotime('-1month', strtotime($firstDateCurrentMonth)));
         
         if(!($startMonth) && $noOfDaysAgo ==""){
            
@@ -143,13 +143,7 @@ class EstimateDeliveryDate {
             
         }
 
-    static function getQueryFromTable(){
-        /**
-         *
-         * @param $zip_code
-         * @return $sql  query with data about a specific zip_code 
-         */
-    }
+   
 
     static function getHistoricalInterval($zip_code, $orderDate, $historicalInterval, $dbTable){
 
@@ -259,6 +253,7 @@ class EstimateDeliveryDate {
 
            echo('A aparut o eroare...' . $th);
         }
+       
     }
  
     static function createNonWorkingInterval($year){
@@ -351,6 +346,7 @@ class EstimateDeliveryDate {
 
             case 'max_values':
                 $arrCounted = array_count_values($historicalIntervalFromTable);
+                print_r($historicalIntervalFromTable);
                 $resultArray = array();
                 foreach ($arrCounted as $key => $val){
                     if ($val >= max($arrCounted)*0.8 &&  $val <= max($arrCounted)) {

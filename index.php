@@ -26,7 +26,7 @@ function connect_db() {
 connect_db();
 
 
-$historicalInterval = EstimateDeliveryDate::readDateInterval("","2018-1","2020-5");
+$historicalInterval = EstimateDeliveryDate::readDateInterval("","2020-1","");
 echo("Date interval for analysis: <br>");
 echo('Start date: ' . $historicalInterval['startDate'] . '<br>');
 echo('End date: ' . $historicalInterval['endDate'] . '<br>');
