@@ -7,17 +7,18 @@ final class EstimateDeliveryDateTest extends TestCase
 {
     public function testReadDateInterval1(): void
     {
-        $date_range1 = array(
-            'startDate'=>'2021-01-21',
-            'endDate'=>'2021-01-31'
-        );
+        
         $input = array(
             'zipCode' => 30116, 
             'orderDate' => date('Y-m-d', strtotime('m')),
             'meanOption' => 'max_values',
-            'noOfDaysAgo' => "10", 
+            'noOfDaysAgo' => "100", 
             'startMonth' => "", 
             'endMonth' => ""
+        );
+        $date_range1 = array(
+            'startDate'=>'2020-10-24',
+            'endDate'=>'2021-02-01'
         );
         $this->assertEquals($date_range1, EstimateDeliveryDate::readDateInterval($input));
     }
