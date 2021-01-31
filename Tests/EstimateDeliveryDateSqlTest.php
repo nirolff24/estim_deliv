@@ -1,16 +1,15 @@
 <?php declare(strict_types=1);
 use PHPUnit\Framework\TestCase;
-$file_root_path = $_SERVER["DOCUMENT_ROOT"] . "./";
-require $file_root_path . "EstimateDeliveryDate.php";
-
+require $_SERVER["DOCUMENT_ROOT"] . "./" . "EstimateDeliveryDate.php";
+require $_SERVER["DOCUMENT_ROOT"] . "./" . "database_config.php";
 final class EstimateDeliveryDateSqlTest extends TestCase
 {
     
 
     public function testgetHistoricalInterval(): void
     {
-        $file_root_path = $_SERVER["DOCUMENT_ROOT"] . "./";
-        require $file_root_path . "database_config.php";
+       
+        
         global $conn;
 
         $servername = DB_HOSTNAME;
@@ -26,7 +25,15 @@ final class EstimateDeliveryDateSqlTest extends TestCase
         if ($conn->connect_error) {
             die("Connection failed: " . $conn->connect_error);
         };
-        !$this->assertEmpty( EstimateDeliveryDate::getHistoricalInterval(30116,'2021-01-20', array('2020-01-01','2020-10-31'),'historical_data'),'Array is not empty!');
+        $input = array(
+            'zipCode' => 30116, 
+            'orderDate' => date('Y-m-d', strtotime('m')),
+            'meanOption' => 'max_values',
+            'noOfDaysAgo' => "100", 
+            'startMonth' => "", 
+            'endMonth' => ""
+        );
+        !$this->assertEquals(318, count(EstimateDeliveryDate::getHistoricalInterval($input, array('startDate'=>'2020-01-01','endDate'=>'2020-10-31'))));
     }
 
     

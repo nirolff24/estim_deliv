@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/vendor/autoload.php';
-
+require __DIR__ .  '/database_config.php';
 
 
 
@@ -25,9 +25,75 @@ class EstimateDeliveryDate {
     static $file_root_path;
     static $bankDays = array();
     static $mean_option;
+    static $conn;
    
     
-    static function readDateInterval( $noOfDaysAgo, $startMonth, $endMonth){
+
+
+
+    static function connect_db() {
+	    global $conn;
+
+        $servername = DB_HOSTNAME;
+        $username = DB_USERNAME;
+        $password = DB_PASSWORD;
+        $dbname = DB_DATABASE;
+        
+      
+        //Create connection
+        $conn = new mysqli($servername, $username, $password, $dbname);
+        
+        //Check connection
+        if ($conn->connect_error) {
+            die("Connection failed: " . $conn->connect_error);
+        };
+    }
+
+
+    static function calculateEstimatedDeliveryDate($input){
+        /**
+         * Return an estimated delivery date for a specific zip_code based on order date and historical data 
+         * for that zip_code.
+         * 
+         * @param array $input
+         * 
+         * @var int $daysAdded - no of day to be added based on check if there are weekend days in 
+         * time interval between order date and initial estimated delivery date  
+         * 
+         * @return date $estimatedDeliveryDate
+         */
+        
+        $orderDate = $input['orderDate'];
+        self::connect_db();
+
+        /**return interval of dates for analysis, start date and end date */
+        $historicalInterval = self::readDateInterval($input);
+
+        /** return an array with values from table historical_data */
+        $historicalIntervalFromTable = self::getHistoricalInterval($input, $historicalInterval);
+        
+        echo(count($historicalIntervalFromTable));
+       
+        $estimatedDeliveryDays= self::estimateBasedOnHistoricData($input, $historicalIntervalFromTable);
+        
+        /** initially estimated delivery date(calendar days) */
+        $estimatedDeliveryDateInitial = date('Y-m-d', strtotime('+'. $estimatedDeliveryDays. 'days', strtotime($orderDate))); //initial estimated delivery date
+       
+        $daysAdded = self::checkBankDays($orderDate, $estimatedDeliveryDateInitial);
+        echo('<br>');
+        echo('Working days to add:' . $estimatedDeliveryDays  .'<br>');
+       
+       /** finally estimated delivery date (working days) */
+        $estimatedDeliveryDateFinal = date('Y-m-d', strtotime('+'. $daysAdded . 'days', strtotime($estimatedDeliveryDateInitial)));  //final estimated delivery date
+       
+        echo('Order date is: ' . $orderDate);
+        echo('<br>');
+        echo('Delivery date is: ' . $estimatedDeliveryDateFinal);
+        
+        return $estimatedDeliveryDate;
+    }
+
+    static function readDateInterval( $input){
         /**
          * Read from input either number of day ago to be added to current date,
          * or a start month with or without and end month.
@@ -35,67 +101,54 @@ class EstimateDeliveryDate {
          * end date is the last date of the previous month.
          * If end month is provided then the end date is the last day of the end month.
          * 
-         * @param $noOfDaysAgo
-         * @param $startMonth
-         * @param $endMonth
+         * @param $input
          * 
-         * @return array $range_date - start and end date for analysis interval to be selected from historical table 
+         * @return array $rangeDate - start and end date for analysis interval to be selected from historical table 
          *  */        
         $currentMonth = date('Y-m', strtotime('m'));
         $firstDateCurrentMonth = date('Y-m-01', strtotime('m'));
         $previousMonth = date('Y-m', strtotime('-1month', strtotime($firstDateCurrentMonth)));
-        
+        $startMonth = $input['startMonth'];
+        $noOfDaysAgo =  $input['noOfDaysAgo'];
+        $endMonth = $input['endMonth'];
+        $rangeDate= array();
+
         if(!($startMonth) && $noOfDaysAgo ==""){
-           
             exit('Please select a starting month!');
         } 
         
 
-        if(!self::checkInputStartMonth($startMonth, $currentMonth)){
-           
+        if(!self::checkInputStartMonth($startMonth, $currentMonth)){           
             exit('Select a starting month earlier than current month!');
         }
         
         if(!self::checkInputEndMonth($startMonth, $endMonth)){
-            
             exit('Start month must be earlier than end month');
         }
 
-        
-
-        //$startMonth = ($startMonth) ? date('Y-F', strtotime($startMonth)) : $previousMonth;
-       // $endMonth = ($endMonth) ? date('Y-F', strtotime($endMonth)) : $previousMonth;
-        $date_range= array();
-      
-       
-
-
         switch (true){
-
             case ($noOfDaysAgo > 0):  
                 /**
                  * calculate interval based on current date and no. of days ago
                  */
-               
-                $range_date['endDate'] = date("Y-m-d"); 
-                $range_date['startDate'] = date('Y-m-d', strtotime('-'. $noOfDaysAgo. 'days', strtotime($range_date['endDate'])));
+                $rangeDate['endDate'] = date("Y-m-d"); 
+                $rangeDate['startDate'] = date('Y-m-d', strtotime('-'. $noOfDaysAgo. 'days', strtotime($rangeDate['endDate'])));
                 break;
 
             case ($startMonth < $currentMonth && !($endMonth) ):
                 /**
                  * calculate interval based only on start month
                  */
-              
-                $range_date['startDate'] = self::getStartDate($startMonth);
-                $range_date['endDate'] = self::getEndDate($startMonth);
+                $rangeDate['startDate'] = self::getStartDate($startMonth);
+                $rangeDate['endDate'] = self::getEndDate($startMonth);
                 break;
             
             case ($startMonth < $endMonth && $endMonth < $currentMonth):  
                     /**
                     * calculate interval if both start month and end month are in the past
                     */
-                   $range_date['startDate'] = self::getStartDate($startMonth);
-                   $range_date['endDate'] = self::getEndDate($endMonth); 
+                   $rangeDate['startDate'] = self::getStartDate($startMonth);
+                   $rangeDate['endDate'] = self::getEndDate($endMonth); 
                    break;
 
             case ($startMonth < $currentMonth && $currentMonth < $endMonth):  
@@ -103,16 +156,18 @@ class EstimateDeliveryDate {
                     * calculate interval if selected start month is in the past and selected end month is in future or current month
                     * then the end date is end date of previous month
                     */
-                    
-                    $range_date['startDate'] = self::getStartDate($startMonth);
-                    $range_date['endDate'] = self::getEndDate($previousMonth); 
+                    $rangeDate['startDate'] = self::getStartDate($startMonth);
+                    $rangeDate['endDate'] = self::getEndDate($previousMonth); 
                     break;
         }
-       
+        echo("Date interval for analysis: <br>");
+        echo('Start date: ' . $rangeDate['startDate'] . '<br>');
+        echo('End date: ' . $rangeDate['endDate'] . '<br>');
+        
         self::StorefromAPI(2021);
         self::createNonWorkingInterval(2021);
 
-        return $range_date;
+        return $rangeDate;
     }
    
     
@@ -145,33 +200,29 @@ class EstimateDeliveryDate {
 
    
 
-    static function getHistoricalInterval($zip_code, $orderDate, $historicalInterval, $dbTable){
+    static function getHistoricalInterval($input, $historicalInterval){
 
         /**
          * Query data from historical table based on zip code and analysis interval ($historicalInterval)
-         * @param int $zip_code
-         * @param date $orderDate - date when order is placed
-         * @param array $historicalInterval
-         * @param const $db_table -  name of table in database
+         * @param array $input
          * 
          *  
          * @return array $interval - an array of delivery times 
          */
-       
+        $zip_code = $input['zipCode'];
+        $startDate = $historicalInterval['startDate'];
+        $endDate = $historicalInterval['endDate'];
+        global $conn;
+        $interval = array();
+
          if(!self::checkInputZipCode($zip_code)){
             echo('Entered zip_code is not in those mentioned!');
             exit();
         };
 
-        $startDate = $historicalInterval['startDate'];
-        $endDate = $historicalInterval['endDate'];
-
-        global $conn;
-        $interval = array();
-
         $sql = "SELECT * 
-                FROM $dbTable 
-                WHERE  zip_code = '$zip_code'
+                FROM " . DB_TABLE 
+                . " WHERE  zip_code = '$zip_code'
                 AND shipment_date BETWEEN '$startDate' AND '$endDate'";
 
         $queryResult = $conn->query($sql);
@@ -195,37 +246,7 @@ class EstimateDeliveryDate {
 
     }
 
-    static function calculateEstimatedDeliveryDate($zip_code, $orderDate, $historicalInterval, $dbTable){
-        /**
-         * Return an estimated delivery date for a specific zip_code based on order date and historical data 
-         * for that zip_code.
-         * 
-         * @param  $zip_code
-         * @param date $orderDate
-         * @param  array $historicalInterval
-         * @param  const $dbTable
-         * 
-         * @var int $daysAdded - no of day to be added based on check if there are weekend days in 
-         * time interval between order date and initial estimated delivery date  
-         * 
-         * @return date $estimatedDeliveryDate
-         */
-
-        
-
-        $historicalIntervalFromTable = self::getHistoricalInterval($zip_code, $orderDate, $historicalInterval, $dbTable);
-     
-        $estimatedDeliveryTime = self::estimateBasedOnHistoricData($historicalIntervalFromTable, self::$mean_option);
-
-        $estimatedDeliveryDate = date('Y-m-d', strtotime('+'. $estimatedDeliveryTime. 'days', strtotime($orderDate))); //initial estimated delivery date
-       
-        $daysAdded = self::checkBankDays($orderDate, $estimatedDeliveryDate);
-        echo('<br>');
-        echo('Working days to add:' . $estimatedDeliveryTime  .'<br>');
-        $estimatedDeliveryDate = date('Y-m-d', strtotime('+'. $daysAdded . 'days', strtotime($estimatedDeliveryDate)));  //final estimated delivery date
-       
-        return $estimatedDeliveryDate;
-    }
+    
 
     static function storeFromAPI ($year) {
         /**
@@ -322,12 +343,13 @@ class EstimateDeliveryDate {
         return $daysAdded;    
     }
 
-    static function estimateBasedOnHistoricData($historicalIntervalFromTable, string $option){
+    static function estimateBasedOnHistoricData($input, $historicalIntervalFromTable){
         /**
          * Estimate a delivery time based on historical data
          * 
+         * @param array input
          * @param array $historicalIntervalFromTable 
-         * @param string $option with values 'average' or 'max_values'. 
+         * 
          * If option is 'average' then the estimated delivery time is arithmetic mean of all value selected
          * If option is 'max values' the the estimated time time is arithmetic mean of all values with occurence number between max*0.8 and max
          * 
@@ -335,31 +357,31 @@ class EstimateDeliveryDate {
          * 
          */
 
-        switch ($option){
+        $option = $input['meanOption'];
+         switch ($option){
             case 'average':
                 foreach($historicalIntervalFromTable as $key => $value){
 
-                    $estimatedDeliveryTime +=(int)$value;
+                    $estimatedDeliveryDays +=(int)$value;
                 }
-                $estimatedDeliveryTime = round($estimatedDeliveryTime / count($historicalIntervalFromTable),0);
+                $estimatedDeliveryDays = round($estimatedDeliveryDays / count($historicalIntervalFromTable),0);
                 break;
 
             case 'max_values':
                 $arrCounted = array_count_values($historicalIntervalFromTable);
-                print_r($historicalIntervalFromTable);
                 $resultArray = array();
                 foreach ($arrCounted as $key => $val){
                     if ($val >= max($arrCounted)*0.8 &&  $val <= max($arrCounted)) {
                         $resultArray[$key] = $val;
-                        $estimatedDeliveryTime += $key;
+                        $estimatedDeliveryDays += $key;
                     }
                 }
                 
-                $estimatedDeliveryTime = round($estimatedDeliveryTime / count($resultArray), 0);
+                $estimatedDeliveryDays = round($estimatedDeliveryDays / count($resultArray), 0);
                 break;
         }
         
-        return $estimatedDeliveryTime;
+        return $estimatedDeliveryDays;
 
     }
 
@@ -378,11 +400,8 @@ class EstimateDeliveryDate {
             '30416'=>4,
             '30516'=>5
           );
-        if (array_key_exists($zip_code, $zipCodesInterval)){
-            return TRUE;
-        }else{
-            return FALSE;
-        }
+        return (array_key_exists($zip_code, $zipCodesInterval));
+       
     }
 
     
@@ -395,11 +414,9 @@ class EstimateDeliveryDate {
          * 
          */
        
-        if ($startMonth < $currentMonth){
-            return TRUE;
-        }else{
-            return FALSE;
-        }
+       
+
+        return ($startMonth < $currentMonth);
     }
 
     static function checkInputEndMonth($startMonth, $endMonth){
@@ -410,14 +427,12 @@ class EstimateDeliveryDate {
          * @return boolean
          * 
          */
-        if(!($endMonth)){
+       
+         if(!($endMonth)){
             return TRUE;
         }
-        if ( ($startMonth != $endMonth) && ($startMonth < $endMonth) ){
-            return TRUE;
-        }else{
-            return FALSE;
-        }
+
+        return ( ($startMonth != $endMonth) && ($startMonth < $endMonth) );
     }
 
 
@@ -425,7 +440,7 @@ class EstimateDeliveryDate {
 /**============Fill historical table=================== 
  * these functions were used to populate the historical table 
  */   
-    static function createRecord(){
+    private static function createRecord(){
         //@zipCode
         //@shipmentDate
         //@$deliveryDate
@@ -477,7 +492,7 @@ class EstimateDeliveryDate {
         self::insertHistoricalTable($zipCode, $shipmentDate2, $deliveryDate3, $deliveryTime, DB_TABLE);
     }
     
-    static function insertHistoricalTable($zipCode, $shipmentDate, $deliveryDate, $deliveryTime, $dbTable){
+    private static function insertHistoricalTable($zipCode, $shipmentDate, $deliveryDate, $deliveryTime, $dbTable){
 
         /**
          * 
@@ -499,7 +514,7 @@ class EstimateDeliveryDate {
         };
     }
 
-    static function checkIfWeekend($date){
+    private static function checkIfWeekend($date){
         /**
          * Check if date is weekend and slide it with 1 or 2 day consequently;
          * 
