@@ -50,7 +50,7 @@ class EstimateDeliveryDate {
     }
 
 
-    static function calculateEstimatedDeliveryDate($input){
+    static function calculateEstimatedDeliveryDate(){
         /**
          * Return an estimated delivery date for a specific zip_code based on order date and historical data 
          * for that zip_code.
@@ -62,6 +62,15 @@ class EstimateDeliveryDate {
          * 
          * @return date $estimatedDeliveryDate
          */
+
+        $input = array(
+            'zipCode' => ($_GET['zipCode']) ?? "", 
+            'orderDate' => date('Y-m-d', strtotime('m')),
+            'meanOption' => ($_GET['meanOption']=='average') ? 'average' : 'max_values',
+            'noOfDaysAgo' => ($_GET['noOfDaysAgo'] && $_GET['whatToUse'] == 'noOfDays' ) ? $_GET['noOfDaysAgo'] : "", 
+            'startMonth' => ($_GET['startMonth'] && $_GET['whatToUse'] == 'month') ?$_GET['startMonth'] : "", 
+            'endMonth' => ($_GET['endMonth'] && $_GET['whatToUse'] == 'month') ? $_GET['endMonth'] : ""
+        );
         
         $orderDate = $input['orderDate'];
         self::connect_db();
@@ -72,7 +81,6 @@ class EstimateDeliveryDate {
         /** return an array with values from table historical_data */
         $historicalIntervalFromTable = self::getHistoricalInterval($input, $historicalInterval);
         
-        echo(count($historicalIntervalFromTable));
        
         $estimatedDeliveryDays= self::estimateBasedOnHistoricData($input, $historicalIntervalFromTable);
         
@@ -114,7 +122,7 @@ class EstimateDeliveryDate {
         $rangeDate= array();
 
         if(!($startMonth) && $noOfDaysAgo ==""){
-            exit('Please select a starting month!');
+            exit('Please select a starting month or a number of days ago!');
         } 
         
 
@@ -214,7 +222,6 @@ class EstimateDeliveryDate {
         $endDate = $historicalInterval['endDate'];
         global $conn;
         $interval = array();
-
          if(!self::checkInputZipCode($zip_code)){
             echo('Entered zip_code is not in those mentioned!');
             exit();
@@ -400,7 +407,7 @@ class EstimateDeliveryDate {
             '30416'=>4,
             '30516'=>5
           );
-        return (array_key_exists($zip_code, $zipCodesInterval));
+        return (array_key_exists(intval($zip_code), $zipCodesInterval));
        
     }
 
